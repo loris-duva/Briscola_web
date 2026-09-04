@@ -1,12 +1,6 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// --- COSTANTI E CONFIGURAZIONE ---
-const WIDTH = 1100;
-const HEIGHT = 750;
-const CARD_WIDTH = 115;
-const CARD_HEIGHT = 175;
-
 // PALETTE COLORI
 const BG_DARK = "#0f141c";
 const TABLE_COLOR = "#185434";
@@ -32,20 +26,28 @@ const NOMI_VALORI = {
 const GERARCHIA = { 1: 10, 3: 9, 10: 8, 9: 7, 8: 6, 7: 5, 6: 4, 5: 3, 4: 2, 2: 1 };
 const PUNTI = { 1: 11, 3: 10, 10: 4, 9: 3, 8: 2, 7: 0, 6: 0, 5: 0, 4: 0, 2: 0 };
 
-// CARICAMENTO IMMAGINE RETRO CON GESTIONE DEL PERCORSO 'carte/retro.png'
+// VARIABILI LAYOUT DINAMICO
+let isMobile = false;
+let cardW = 115;
+let cardH = 175;
+let virtWidth = 1100;
+let virtHeight = 750;
+
+let scale = 1;
+let offsetX = 0;
+let offsetY = 0;
+
+// CARICAMENTO IMMAGINI
 const imageBack = new Image();
-imageBack.src = "carte/retro.jpg";
+imageBack.src = "carte/retro.png";
 imageBack.onerror = () => {
-    // Fallback: se carte/retro.png fallisce, prova retro.png nella cartella principale
     if (imageBack.src.includes("carte/")) {
-        imageBack.src = "retro.jpg";
+        imageBack.src = "retro.png";
     }
 };
 
-// CACHE PER LE IMMAGINI DELLE CARTE
 const cardImagesCache = {};
 
-// RENDERIZZAZIONE CON ANGOLI ARROTONDATI
 function drawRoundedImage(ctx, img, x, y, width, height, radius) {
     ctx.save();
     ctx.beginPath();
@@ -59,6 +61,42 @@ function drawRoundedImage(ctx, img, x, y, width, height, radius) {
     ctx.drawImage(img, x, y, width, height);
     ctx.restore();
 }
+
+function resizeCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+
+    isMobile = windowHeight > windowWidth;
+
+    if (isMobile) {
+        virtWidth = 600;
+        virtHeight = 950;
+        cardW = 130;
+        cardH = 195;
+    } else {
+        virtWidth = 1100;
+        virtHeight = 750;
+        cardW = 115;
+        cardH = 175;
+    }
+
+    const scaleX = windowWidth / virtWidth;
+    const scaleY = windowHeight / virtHeight;
+    scale = Math.min(scaleX, scaleY);
+
+    canvas.width = windowWidth * dpr;
+    canvas.height = windowHeight * dpr;
+
+    canvas.style.width = `${windowWidth}px`;
+    canvas.style.height = `${windowHeight}px`;
+
+    offsetX = (windowWidth - virtWidth * scale) / 2;
+    offsetY = (windowHeight - virtHeight * scale) / 2;
+}
+
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
 
 // --- CLASSE CARTA ---
 class Carta {
@@ -82,37 +120,34 @@ class Carta {
 
     disegna(ctx, x, y, options = {}) {
         const { coperta = false, elevata = false, evidenziata = false } = options;
-        const targetY = elevata ? y - 15 : y;
+        const targetY = elevata ? y - 20 : y;
         this.x = x;
         this.y = targetY;
 
-        // Ombra sotto la carta
         ctx.fillStyle = "rgba(0, 0, 0, 0.35)";
         ctx.beginPath();
-        ctx.roundRect(x + 2, targetY + 2, CARD_WIDTH, CARD_HEIGHT, 10);
+        ctx.roundRect(x + 2, targetY + 2, cardW, cardH, 10);
         ctx.fill();
 
-        // Bagliore dorato
         if (evidenziata) {
             ctx.fillStyle = GOLD_GLOW;
             ctx.beginPath();
-            ctx.roundRect(x - 8, targetY - 8, CARD_WIDTH + 16, CARD_HEIGHT + 16, 14);
+            ctx.roundRect(x - 8, targetY - 8, cardW + 16, cardH + 16, 14);
             ctx.fill();
         }
 
         if (coperta) {
             if (imageBack.complete && imageBack.naturalWidth !== 0) {
-                drawRoundedImage(ctx, imageBack, x, targetY, CARD_WIDTH, CARD_HEIGHT, 10);
+                drawRoundedImage(ctx, imageBack, x, targetY, cardW, cardH, 10);
                 ctx.strokeStyle = "#c8c8c8";
                 ctx.lineWidth = 1;
                 ctx.beginPath();
-                ctx.roundRect(x, targetY, CARD_WIDTH, CARD_HEIGHT, 10);
+                ctx.roundRect(x, targetY, cardW, cardH, 10);
                 ctx.stroke();
             } else {
-                // Fallback rettangolo blu se l'immagine non è trovata/caricata
                 ctx.fillStyle = BLUE_ACCENT;
                 ctx.beginPath();
-                ctx.roundRect(x, targetY, CARD_WIDTH, CARD_HEIGHT, 10);
+                ctx.roundRect(x, targetY, cardW, cardH, 10);
                 ctx.fill();
                 ctx.strokeStyle = WHITE;
                 ctx.lineWidth = 2;
@@ -120,27 +155,26 @@ class Carta {
 
                 ctx.fillStyle = "#14326e";
                 ctx.beginPath();
-                ctx.roundRect(x + 6, targetY + 6, CARD_WIDTH - 12, CARD_HEIGHT - 12, 6);
+                ctx.roundRect(x + 6, targetY + 6, cardW - 12, cardH - 12, 6);
                 ctx.fill();
 
                 ctx.fillStyle = WHITE;
                 ctx.font = "bold 15px 'Segoe UI'";
                 ctx.textAlign = "center";
-                ctx.fillText("BRISCOLA", x + CARD_WIDTH / 2, targetY + CARD_HEIGHT / 2);
+                ctx.fillText("BRISCOLA", x + cardW / 2, targetY + cardH / 2);
             }
         } else {
             if (this.image.complete && this.image.naturalWidth !== 0) {
-                drawRoundedImage(ctx, this.image, x, targetY, CARD_WIDTH, CARD_HEIGHT, 10);
+                drawRoundedImage(ctx, this.image, x, targetY, cardW, cardH, 10);
                 ctx.strokeStyle = "#c8c8c8";
                 ctx.lineWidth = 1;
                 ctx.beginPath();
-                ctx.roundRect(x, targetY, CARD_WIDTH, CARD_HEIGHT, 10);
+                ctx.roundRect(x, targetY, cardW, cardH, 10);
                 ctx.stroke();
             } else {
-                // Fallback disegno vettoriale
                 ctx.fillStyle = WHITE;
                 ctx.beginPath();
-                ctx.roundRect(x, targetY, CARD_WIDTH, CARD_HEIGHT, 10);
+                ctx.roundRect(x, targetY, cardW, cardH, 10);
                 ctx.fill();
                 ctx.strokeStyle = BLACK;
                 ctx.lineWidth = 2;
@@ -155,18 +189,18 @@ class Carta {
                 ctx.fillStyle = BLACK;
                 ctx.font = "bold 15px 'Segoe UI'";
                 ctx.textAlign = "center";
-                ctx.fillText(NOMI_VALORI[this.valore], x + CARD_WIDTH / 2, targetY + 65);
+                ctx.fillText(NOMI_VALORI[this.valore], x + cardW / 2, targetY + 65);
 
                 ctx.fillStyle = coloreSeme;
                 ctx.font = "bold 20px 'Segoe UI'";
-                ctx.fillText(this.seme, x + CARD_WIDTH / 2, targetY + 105);
+                ctx.fillText(this.seme, x + cardW / 2, targetY + 105);
             }
         }
     }
 
     isPointInside(px, py) {
-        return px >= this.x && px <= this.x + CARD_WIDTH &&
-            py >= this.y && py <= this.y + CARD_HEIGHT;
+        return px >= this.x && px <= this.x + cardW &&
+            py >= this.y && py <= this.y + cardH;
     }
 }
 
@@ -183,7 +217,6 @@ class GiocoBriscola {
                 this.mazzo.push(new Carta(s, v));
             }
         }
-        // Shuffle (Fisher-Yates)
         for (let i = this.mazzo.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [this.mazzo[i], this.mazzo[j]] = [this.mazzo[j], this.mazzo[i]];
@@ -312,110 +345,186 @@ class GiocoBriscola {
     }
 
     disegna(posMouse) {
-        // 1. SFONDO SCURO E TAVOLO DA GIOCO
+        const dpr = window.devicePixelRatio || 1;
+        ctx.save();
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        ctx.scale(dpr, dpr);
+        ctx.translate(offsetX, offsetY);
+        ctx.scale(scale, scale);
+
+        // 1. TAVOLO
         ctx.fillStyle = BG_DARK;
-        ctx.fillRect(0, 0, WIDTH, HEIGHT);
+        ctx.fillRect(-offsetX / scale, -offsetY / scale, window.innerWidth / scale, window.innerHeight / scale);
 
         ctx.fillStyle = TABLE_COLOR;
         ctx.beginPath();
-        ctx.roundRect(40, 20, WIDTH - 80, HEIGHT - 40, 24);
+        ctx.roundRect(20, 20, virtWidth - 40, virtHeight - 40, 24);
         ctx.fill();
         ctx.strokeStyle = TABLE_BORDER;
         ctx.lineWidth = 4;
         ctx.stroke();
 
-        // 2. UNICO SLOT CENTRALE PER ENTRAMBE LE CARTE
-        const SLOT_HEIGHT = CARD_HEIGHT + 70;
-        const SLOT_WIDTH = CARD_WIDTH + 30;
-        const slotX = WIDTH / 2 - SLOT_WIDTH / 2;
-        const slotY = HEIGHT / 2 - SLOT_HEIGHT / 2;
+        if (isMobile) {
+            // --- LAYOUT MOBILE (PORTRAIT REVISIONATO) ---
 
-        ctx.fillStyle = CARD_SLOT;
-        ctx.beginPath();
-        ctx.roundRect(slotX, slotY, SLOT_WIDTH, SLOT_HEIGHT, 14);
-        ctx.fill();
-        ctx.strokeStyle = "#0e321e";
-        ctx.lineWidth = 2;
-        ctx.stroke();
+            // BADGE TURNO (IN ALTO AL CENTRO)
+            if (this.stato === "IN_CORSO") {
+                ctx.fillStyle = "#0a1e14";
+                ctx.beginPath();
+                ctx.roundRect(virtWidth / 2 - 120, 35, 240, 42, 21);
+                ctx.fill();
 
-        // 3. MAZZO E BRISCOLA
-        if (this.mazzo.length > 0) {
-            const deckX = 80;
-            const deckY = HEIGHT / 2 - CARD_HEIGHT / 2;
+                ctx.fillStyle = this.turnoAttuale === "Giocatore" ? GOLD : TEXT_MUTED;
+                ctx.font = "bold 18px 'Segoe UI'";
+                ctx.textAlign = "center";
+                ctx.fillText(`TURNO: ${this.turnoAttuale.toUpperCase()}`, virtWidth / 2, 62);
+            }
 
-            if (this.mazzo.length > 1) {
-                this.cartaBriscola.disegna(ctx, deckX + CARD_WIDTH / 2, deckY, { evidenziata: true });
-                const deckCard = this.mazzo[this.mazzo.length - 1];
-                deckCard.disegna(ctx, deckX, deckY, { coperta: true });
+            // CARTE BOT
+            const gapBot = 15;
+            const startXBot = (virtWidth - (this.manoBot.length * (cardW + gapBot) - gapBot)) / 2;
+            this.manoBot.forEach((c, i) => {
+                c.disegna(ctx, startXBot + i * (cardW + gapBot), 95, { coperta: true });
+            });
+
+            // CENTRO TAVOLO: SLOT COMPATTO ED ELEGANTE
+            const slotW = cardW + 20;
+            const slotH = cardH + 50;
+            const slotX = virtWidth - slotW - 50;
+            const slotY = virtHeight / 2 - slotH / 2;
+
+            ctx.fillStyle = CARD_SLOT;
+            ctx.beginPath();
+            ctx.roundRect(slotX, slotY, slotW, slotH, 14);
+            ctx.fill();
+            ctx.strokeStyle = "#0e321e";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // MAZZO E BRISCOLA (A SINISTRA)
+            const deckX = 50;
+            const deckY = virtHeight / 2 - cardH / 2;
+            if (this.mazzo.length > 0) {
+                if (this.mazzo.length > 1) {
+                    this.cartaBriscola.disegna(ctx, deckX + cardW / 3, deckY, { evidenziata: true });
+                    const deckCard = this.mazzo[this.mazzo.length - 1];
+                    deckCard.disegna(ctx, deckX, deckY, { coperta: true });
+                } else {
+                    this.cartaBriscola.disegna(ctx, deckX, deckY, { evidenziata: true });
+                }
+            }
+
+            ctx.fillStyle = TEXT_MUTED;
+            ctx.font = "bold 16px 'Segoe UI'";
+            ctx.textAlign = "left";
+            ctx.fillText(`MAZZO: ${this.mazzo.length}`, deckX, deckY + cardH + 30);
+
+            // CARTE GIOCATE NEL CENTRO (SOVRAPPOSIZIONE STILE PC)
+            const posYBot = slotY + 15;
+            const posYGiog = slotY + slotH - cardH - 15;
+            const posXCentro = slotX + (slotW - cardW) / 2;
+
+            if (this.turnoIniziale === "Giocatore") {
+                if (this.tavolo["Giocatore"]) this.tavolo["Giocatore"].disegna(ctx, posXCentro, posYGiog);
+                if (this.tavolo["Bot"]) this.tavolo["Bot"].disegna(ctx, posXCentro, posYBot);
             } else {
-                this.cartaBriscola.disegna(ctx, deckX, deckY, { evidenziata: true });
+                if (this.tavolo["Bot"]) this.tavolo["Bot"].disegna(ctx, posXCentro, posYBot);
+                if (this.tavolo["Giocatore"]) this.tavolo["Giocatore"].disegna(ctx, posXCentro, posYGiog);
+            }
+
+            // CARTE GIOCATE (SEZIONE MOBILE)
+            const startXG = (virtWidth - (this.manoGiocatore.length * (cardW + 20) - 20)) / 2;
+            this.manoGiocatore.forEach((c, i) => {
+                const x = startXG + i * (cardW + 20);
+                const y = virtHeight - cardH - 45;
+                const isHover = c.isPointInside(posMouse.x, posMouse.y) && this.stato === "IN_CORSO" && this.turnoAttuale === "Giocatore";
+                c.disegna(ctx, x, y, { elevata: isHover });
+            });
+
+        } else {
+            // --- LAYOUT DESKTOP / TABLET (LANDSCAPE) ---
+            const slotH = cardH + 70;
+            const slotW = cardW + 30;
+            const slotX = virtWidth / 2 - slotW / 2;
+            const slotY = virtHeight / 2 - slotH / 2;
+
+            ctx.fillStyle = CARD_SLOT;
+            ctx.beginPath();
+            ctx.roundRect(slotX, slotY, slotW, slotH, 14);
+            ctx.fill();
+
+            if (this.mazzo.length > 0) {
+                const deckX = 80;
+                const deckY = virtHeight / 2 - cardH / 2;
+                if (this.mazzo.length > 1) {
+                    this.cartaBriscola.disegna(ctx, deckX + cardW / 2, deckY, { evidenziata: true });
+                    const deckCard = this.mazzo[this.mazzo.length - 1];
+                    deckCard.disegna(ctx, deckX, deckY, { coperta: true });
+                } else {
+                    this.cartaBriscola.disegna(ctx, deckX, deckY, { evidenziata: true });
+                }
+            }
+
+            ctx.fillStyle = TEXT_MUTED;
+            ctx.font = "bold 15px 'Segoe UI'";
+            ctx.textAlign = "left";
+            ctx.fillText(`CARTE NEL MAZZO: ${this.mazzo.length}`, 70, virtHeight / 2 + cardH / 2 + 35);
+
+            ctx.fillStyle = GOLD;
+            ctx.font = "bold 20px 'Segoe UI'";
+            ctx.fillText(`BRISCOLA: ${this.cartaBriscola.nome.toUpperCase()}`, 70, virtHeight / 2 + cardH / 2 + 62);
+
+            const startXBot = (virtWidth - (this.manoBot.length * (cardW + 18) - 18)) / 2;
+            this.manoBot.forEach((c, i) => {
+                c.disegna(ctx, startXBot + i * (cardW + 18), 40, { coperta: true });
+            });
+
+            const startXG = (virtWidth - (this.manoGiocatore.length * (cardW + 18) - 18)) / 2;
+            this.manoGiocatore.forEach((c, i) => {
+                const x = startXG + i * (cardW + 18);
+                const y = virtHeight - cardH - 40;
+                const isHover = c.isPointInside(posMouse.x, posMouse.y) && this.stato === "IN_CORSO" && this.turnoAttuale === "Giocatore";
+                c.disegna(ctx, x, y, { elevata: isHover });
+            });
+
+            const posYBot = slotY + 15;
+            const posYGiog = slotY + slotH - cardH - 15;
+            const posXCentro = virtWidth / 2 - cardW / 2;
+
+            if (this.turnoIniziale === "Giocatore") {
+                if (this.tavolo["Giocatore"]) this.tavolo["Giocatore"].disegna(ctx, posXCentro, posYGiog);
+                if (this.tavolo["Bot"]) this.tavolo["Bot"].disegna(ctx, posXCentro, posYBot);
+            } else {
+                if (this.tavolo["Bot"]) this.tavolo["Bot"].disegna(ctx, posXCentro, posYBot);
+                if (this.tavolo["Giocatore"]) this.tavolo["Giocatore"].disegna(ctx, posXCentro, posYGiog);
+            }
+
+            if (this.stato === "IN_CORSO") {
+                ctx.fillStyle = "#0a1e14";
+                ctx.beginPath();
+                ctx.roundRect(virtWidth - 270, 40, 200, 36, 18);
+                ctx.fill();
+
+                ctx.fillStyle = this.turnoAttuale === "Giocatore" ? GOLD : TEXT_MUTED;
+                ctx.font = "bold 15px 'Segoe UI'";
+                ctx.textAlign = "center";
+                ctx.fillText(`TURNO: ${this.turnoAttuale.toUpperCase()}`, virtWidth - 170, 63);
             }
         }
 
-        // Info Mazzo e Briscola sul pannello sinistro
-        ctx.fillStyle = TEXT_MUTED;
-        ctx.font = "bold 15px 'Segoe UI'";
-        ctx.textAlign = "left";
-        ctx.fillText(`CARTE NEL MAZZO: ${this.mazzo.length}`, 70, HEIGHT / 2 + CARD_HEIGHT / 2 + 35);
-
-        ctx.fillStyle = GOLD;
-        ctx.font = "bold 20px 'Segoe UI'";
-        ctx.fillText(`BRISCOLA: ${this.cartaBriscola.nome.toUpperCase()}`, 70, HEIGHT / 2 + CARD_HEIGHT / 2 + 62);
-
-        // 4. CARTE DEL BOT
-        const startXBot = (WIDTH - (this.manoBot.length * (CARD_WIDTH + 18) - 18)) / 2;
-        this.manoBot.forEach((c, i) => {
-            const x = startXBot + i * (CARD_WIDTH + 18);
-            c.disegna(ctx, x, 40, { coperta: true });
-        });
-
-        // 5. CARTE DEL GIOCATORE
-        const startXG = (WIDTH - (this.manoGiocatore.length * (CARD_WIDTH + 18) - 18)) / 2;
-        this.manoGiocatore.forEach((c, i) => {
-            const x = startXG + i * (CARD_WIDTH + 18);
-            const y = HEIGHT - CARD_HEIGHT - 40;
-
-            const isHover = c.isPointInside(posMouse.x, posMouse.y) && this.stato === "IN_CORSO" && this.turnoAttuale === "Giocatore";
-            c.disegna(ctx, x, y, { elevata: isHover });
-        });
-
-        // 6. CARTE NEL SINGOLO SLOT CENTRALE
-        const posYBot = slotY + 15;
-        const posYGiog = slotY + SLOT_HEIGHT - CARD_HEIGHT - 15;
-        const posXCentro = WIDTH / 2 - CARD_WIDTH / 2;
-
-        if (this.turnoIniziale === "Giocatore") {
-            if (this.tavolo["Giocatore"]) this.tavolo["Giocatore"].disegna(ctx, posXCentro, posYGiog);
-            if (this.tavolo["Bot"]) this.tavolo["Bot"].disegna(ctx, posXCentro, posYBot);
-        } else {
-            if (this.tavolo["Bot"]) this.tavolo["Bot"].disegna(ctx, posXCentro, posYBot);
-            if (this.tavolo["Giocatore"]) this.tavolo["Giocatore"].disegna(ctx, posXCentro, posYGiog);
-        }
-
-        // 7. BADGE DEL TURNO ATTUALE
-        if (this.stato === "IN_CORSO") {
-            ctx.fillStyle = "#0a1e14";
-            ctx.beginPath();
-            ctx.roundRect(WIDTH - 270, 40, 200, 36, 18);
-            ctx.fill();
-
-            ctx.fillStyle = this.turnoAttuale === "Giocatore" ? GOLD : TEXT_MUTED;
-            ctx.font = "bold 15px 'Segoe UI'";
-            ctx.textAlign = "center";
-            ctx.fillText(`TURNO: ${this.turnoAttuale.toUpperCase()}`, WIDTH - 170, 63);
-        }
-
-        // 8. SCHERMATA FINALE MODERNA
+        // SCHERMATA FINALE
         if (this.stato === "FINITA") {
-            ctx.fillStyle = "rgba(10, 15, 25, 0.82)";
-            ctx.fillRect(0, 0, WIDTH, HEIGHT);
+            ctx.fillStyle = "rgba(10, 15, 25, 0.85)";
+            ctx.fillRect(-offsetX / scale, -offsetY / scale, window.innerWidth / scale, window.innerHeight / scale);
 
-            const boxX = WIDTH / 2 - 250;
-            const boxY = HEIGHT / 2 - 140;
+            const boxW = Math.min(500, virtWidth - 60);
+            const boxX = virtWidth / 2 - boxW / 2;
+            const boxY = virtHeight / 2 - 140;
 
             ctx.fillStyle = "#192332";
             ctx.beginPath();
-            ctx.roundRect(boxX, boxY, 500, 280, 20);
+            ctx.roundRect(boxX, boxY, boxW, 280, 20);
             ctx.fill();
 
             const coloreEsito = this.puntiGiocatore > this.puntiBot ? GOLD : (this.puntiGiocatore < this.puntiBot ? RED_ACCENT : WHITE);
@@ -428,42 +537,67 @@ class GiocoBriscola {
             else if (this.puntiGiocatore < this.puntiBot) esito = "SCONFITTA";
 
             ctx.fillStyle = coloreEsito;
-            ctx.font = "bold 42px 'Segoe UI'";
+            ctx.font = "bold 40px 'Segoe UI'";
             ctx.textAlign = "center";
-            ctx.fillText(esito, WIDTH / 2, HEIGHT / 2 - 40);
+            ctx.fillText(esito, virtWidth / 2, virtHeight / 2 - 40);
 
             ctx.fillStyle = WHITE;
             ctx.font = "bold 20px 'Segoe UI'";
-            ctx.fillText(`Punteggio: Tu ${this.puntiGiocatore} - ${this.puntiBot} Bot`, WIDTH / 2, HEIGHT / 2 + 10);
+            ctx.fillText(`Punteggio: Tu ${this.puntiGiocatore} - ${this.puntiBot} Bot`, virtWidth / 2, virtHeight / 2 + 10);
 
             ctx.fillStyle = TEXT_MUTED;
             ctx.font = "bold 15px 'Segoe UI'";
-            ctx.fillText("PREMI 'R' O CLICCA PER GIOCARE UN'ALTRA PARTITA", WIDTH / 2, HEIGHT / 2 + 80);
+            ctx.fillText(isMobile ? "TOCCA PER NUOVA PARTITA" : "PREMI 'R' O CLICCA PER RINIZIARE", virtWidth / 2, virtHeight / 2 + 80);
         }
+
+        ctx.restore();
     }
 }
 
-// --- SETUP GAME LOOP & EVENTI ---
+// --- EVENTI ---
 const gioco = new GiocoBriscola();
-let posMouse = { x: 0, y: 0 };
+let posMouse = { x: -100, y: -100 };
 
-function getMousePos(e) {
+function getCanvasCoordinates(e) {
     const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
+    let clientX = e.clientX;
+    let clientY = e.clientY;
+
+    if (e.touches && e.touches.length > 0) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+    }
+
+    const mouseX = clientX - rect.left;
+    const mouseY = clientY - rect.top;
+
     return {
-        x: (e.clientX - rect.left) * scaleX,
-        y: (e.clientY - rect.top) * scaleY
+        x: (mouseX - offsetX) / scale,
+        y: (mouseY - offsetY) / scale
     };
 }
 
 canvas.addEventListener('mousemove', (e) => {
-    posMouse = getMousePos(e);
+    posMouse = getCanvasCoordinates(e);
 });
 
 canvas.addEventListener('click', (e) => {
-    const pos = getMousePos(e);
+    gestisciInput(getCanvasCoordinates(e));
+});
 
+canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    const pos = getCanvasCoordinates(e);
+    posMouse = pos;
+    gestisciInput(pos);
+}, { passive: false });
+
+canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    posMouse = getCanvasCoordinates(e);
+}, { passive: false });
+
+function gestisciInput(pos) {
     if (gioco.stato === "FINITA") {
         gioco.resetPartita();
         return;
@@ -474,11 +608,12 @@ canvas.addEventListener('click', (e) => {
             if (c.isPointInside(pos.x, pos.y)) {
                 gioco.giocaCarta("Giocatore", c);
                 gioco.turnoAttuale = "Bot";
+                posMouse = { x: -100, y: -100 };
                 break;
             }
         }
     }
-});
+}
 
 window.addEventListener('keydown', (e) => {
     if ((e.key === 'r' || e.key === 'R') && gioco.stato === "FINITA") {
@@ -486,7 +621,6 @@ window.addEventListener('keydown', (e) => {
     }
 });
 
-// LOOP PRINCIPALE (60 FPS)
 function gameLoop() {
     gioco.aggiornaFasi();
     gioco.disegna(posMouse);
