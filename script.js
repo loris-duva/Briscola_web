@@ -39,10 +39,10 @@ let offsetY = 0;
 
 // CARICAMENTO IMMAGINI
 const imageBack = new Image();
-imageBack.src = "carte/retro.png";
+imageBack.src = "carte/retro.jpg";
 imageBack.onerror = () => {
     if (imageBack.src.includes("carte/")) {
-        imageBack.src = "retro.png";
+        imageBack.src = "retro.jpg";
     }
 };
 
